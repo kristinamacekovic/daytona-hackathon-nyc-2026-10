@@ -50,7 +50,7 @@ export async function fetchVideoFromLink(url: string): Promise<Buffer> {
   }
 }
 
-async function fetchWithAnchor(url: string): Promise<Buffer> {
+export async function fetchWithAnchor(url: string): Promise<Buffer> {
   return withSpan("ingest.anchor", "TOOL", { url }, async () => {
     client.setConfig({ auth: () => process.env.ANCHOR_API_KEY! });
     const session = await Sessions.createSession();
