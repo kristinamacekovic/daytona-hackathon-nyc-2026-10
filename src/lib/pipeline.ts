@@ -1,4 +1,4 @@
-import { mkdir, writeFile, cp } from "node:fs/promises";
+import { mkdir, writeFile, readFile, cp } from "node:fs/promises";
 import path from "node:path";
 import type { Analysis, Job, JobStatus, Option } from "./types";
 import { withJobSandbox, uploadScripts, WORK } from "./sandbox";
@@ -7,7 +7,7 @@ import { styleTag } from "./style-tag";
 import { recallBrandFacts } from "./memory";
 import { runAnalyst } from "./analyst";
 import { composeAll, LEAD_IN_MS } from "./composer";
-import { runJudge } from "./judge";
+import { runJudge, listenScores, combineScores } from "./judge";
 import { updateJob, jobDir, DEMO_DIR } from "./store";
 import { withSpan } from "./tracing";
 import { isCompleteRun } from "./pipeline-rules";
@@ -74,7 +74,14 @@ export async function runPipeline(job: Job, video: Buffer): Promise<void> {
 
         await set("judging");
         const okPlans = plans.filter((p) => tracks.some((t) => t.variant === p.variant));
-        const scores = await runJudge({ brand: job.brand, facts, brief, plans: okPlans });
+        const previews = await Promise.all(
+          tracks.map(async (t) => ({ variant: t.variant, mp4: await readFile(path.join(dir, `preview_${t.variant}.mp4`)) })),
+        );
+        const [planScores, heard] = await Promise.all([
+          runJudge({ brand: job.brand, facts, brief, plans: okPlans }),
+          listenScores({ brief, previews }),
+        ]);
+        const scores = combineScores(planScores, heard);
         const options: Option[] = scores.map((s) => ({
           ...s,
           plan: okPlans.find((p) => p.variant === s.variant)!,
