@@ -55,7 +55,8 @@ export function JobView({ id, onReset }: { id: string; onReset: () => void }) {
       )}
       {job.brief && job.status !== "failed" && (
         <p className="max-w-3xl text-pretty text-muted-foreground">
-          <span className="text-foreground">{job.brief.summary}</span>. Mood: {job.brief.mood}.
+          <span className="text-foreground">{job.brief.summary.replace(/\.+$/, "")}.</span>{" "}
+          Mood: {job.brief.mood.replace(/\.+$/, "")}.
         </p>
       )}
       {job.status === "ready" && (
