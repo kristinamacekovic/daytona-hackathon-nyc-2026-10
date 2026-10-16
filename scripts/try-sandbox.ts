@@ -13,7 +13,7 @@ async function main() {
     console.log(await sb.exec("python analyze.py in.mp4 out", 300));
     if (track) {
       await sb.upload(await readFile(track), `${WORK}/track.mp3`);
-      await sb.exec("bash mux.sh in.mp4 track.mp3 out/preview.mp4 0 20", 120);
+      await sb.exec("bash mux.sh in.mp4 track.mp3 out/preview.mp4 '[1:a]anull[a]'", 120);
       await writeFile("preview.mp4", await sb.download(`${WORK}/out/preview.mp4`));
       console.log("wrote preview.mp4");
     }

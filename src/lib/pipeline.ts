@@ -11,6 +11,8 @@ import { runJudge } from "./judge";
 import { updateJob, jobDir, DEMO_DIR } from "./store";
 import { withSpan } from "./tracing";
 import { isCompleteRun } from "./pipeline-rules";
+import { isolateVoice } from "./voice";
+import { muxFilter, parseMeanVolume, hasSpeech } from "./mix";
 
 export async function runPipeline(job: Job, video: Buffer): Promise<void> {
   const dir = jobDir(job.id);
@@ -40,7 +42,17 @@ export async function runPipeline(job: Job, video: Buffer): Promise<void> {
         ]);
         analysis.style_tag = await styleTag(audio);
         const slots = sectionSlots(analysis);
-        const { brief, plans } = await runAnalyst({ brand: job.brand, facts, analysis, slots, frames });
+        const [{ brief, plans }, voice] = await Promise.all([
+          runAnalyst({ brand: job.brand, facts, analysis, slots, frames }),
+          isolateVoice(audio),
+        ]);
+        let withVoice = false;
+        if (voice) {
+          await sb.upload(voice, `${WORK}/voice.mp3`);
+          const stats = await sb.exec("ffmpeg -hide_banner -i voice.mp3 -af volumedetect -f null - 2>&1 | grep mean_volume || true", 60);
+          withVoice = hasSpeech(parseMeanVolume(stats));
+          console.log(`[pipeline] voice ${withVoice ? "kept" : "skipped"} (${stats.trim()})`);
+        }
         await updateJob(job, { brief });
 
         await set("composing");
@@ -52,9 +64,11 @@ export async function runPipeline(job: Job, video: Buffer): Promise<void> {
         for (const t of tracks) {
           await writeFile(path.join(dir, `track_${t.variant}.mp3`), t.audio);
           await sb.upload(t.audio, `${WORK}/track_${t.variant}.mp3`);
-          const lead = (LEAD_IN_MS / 1000).toFixed(3);
-          const dur = (analysis.duration_ms / 1000).toFixed(3);
-          await sb.exec(`bash mux.sh in.mp4 track_${t.variant}.mp3 out/preview_${t.variant}.mp4 ${lead} ${dur}`, 120);
+          const filter = muxFilter({ leadInS: LEAD_IN_MS / 1000, durationS: analysis.duration_ms / 1000, withVoice });
+          await sb.exec(
+            `bash mux.sh in.mp4 track_${t.variant}.mp3 out/preview_${t.variant}.mp4 '${filter}'${withVoice ? " voice.mp3" : ""}`,
+            120,
+          );
           await writeFile(path.join(dir, `preview_${t.variant}.mp4`), await sb.download(`${WORK}/out/preview_${t.variant}.mp4`));
         }
 
