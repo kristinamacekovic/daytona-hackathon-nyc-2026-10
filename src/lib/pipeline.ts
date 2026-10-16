@@ -9,7 +9,7 @@ import { runAnalyst } from "./analyst";
 import { composeAll, LEAD_IN_MS } from "./composer";
 import { runJudge, listenScores, combineScores } from "./judge";
 import { updateJob, jobDir, DEMO_DIR } from "./store";
-import { withSpan } from "./tracing";
+import { withJobContext, withSpan } from "./tracing";
 import { isCompleteRun } from "./pipeline-rules";
 import { isolateVoice } from "./voice";
 import { muxFilter, parseMeanVolume, hasSpeech } from "./mix";
@@ -25,7 +25,7 @@ export async function runPipeline(job: Job, video: Buffer): Promise<void> {
   };
 
   try {
-    await withSpan("pipeline", "CHAIN", { job: job.id, brand: job.brand }, () =>
+    await withJobContext(job, () => withSpan("pipeline", "CHAIN", { job: job.id, brand: job.brand }, () =>
       withJobSandbox(async (sb) => {
         await set("analyzing");
         await uploadScripts(sb);
@@ -93,7 +93,7 @@ export async function runPipeline(job: Job, video: Buffer): Promise<void> {
           await cp(dir, path.join(DEMO_DIR, "latest"), { recursive: true }).catch(() => {});
         }
       }),
-    );
+    ));
   } catch (e) {
     console.error("[pipeline] failed", e);
     await updateJob(job, { status: "failed", failed_step: step, error: (e as Error).message });

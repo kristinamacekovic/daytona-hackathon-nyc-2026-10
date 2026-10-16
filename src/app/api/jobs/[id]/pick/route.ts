@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getJob, updateJob } from "@/lib/store";
 import { rememberBrandFact } from "@/lib/memory";
+import { withJobContext } from "@/lib/tracing";
 import { VARIANTS, type Variant } from "@/lib/types";
 
 
@@ -17,7 +18,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     `On ${date}, for ${job.brand} content about "${job.brief?.summary ?? "a video"}", the creator chose music styled ` +
     `${picked.plan.global_styles.join(", ")}` +
     (others.length ? ` and rejected ${others.map((o) => o.plan.global_styles.join(", ")).join(" / ")}.` : ".");
-  await rememberBrandFact(job.brand, fact);
+  await withJobContext(job, () => rememberBrandFact(job.brand, fact));
   await updateJob(job, { picked: variant });
   return NextResponse.json({ ok: true });
 }
