@@ -57,6 +57,20 @@ describe("parseAnalystOutput", () => {
   });
 });
 
+describe("analystPrompt viewing notes", () => {
+  const analysis: Analysis = {
+    duration_ms: 15000, bpm: 90, beats_ms: [], scene_cuts_ms: [6000], energy_peaks_ms: [],
+    style_tag: "trap", keyframes: [],
+  };
+  it("includes Gemini's full-video viewing notes when present", () => {
+    const p = analystPrompt({ brand: "Jira", facts: [], analysis, slots, videoNotes: "0:06 she waves; says 'anyone?'" });
+    expect(p).toContain("0:06 she waves; says 'anyone?'");
+  });
+  it("says so when there are no viewing notes", () => {
+    expect(analystPrompt({ brand: "Jira", facts: [], analysis, slots })).toContain("viewing notes: none");
+  });
+});
+
 describe("analystPrompt", () => {
   it("uses fallback BPM and lists every slot", () => {
     const analysis: Analysis = {

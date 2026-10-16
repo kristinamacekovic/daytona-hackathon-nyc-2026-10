@@ -28,3 +28,30 @@ export async function styleTag(audioMp3: Buffer | null): Promise<string> {
     return "unknown";
   }
 }
+
+// Gemini watches the whole original video with sound: what the analyst can't get from 8 still frames.
+export async function watchVideo(mp4: Buffer): Promise<string> {
+  if (!process.env.GEMINI_API_KEY || mp4.length > 18 * 1024 * 1024) return "";
+  try {
+    return await withSpan("video_notes", "LLM", { bytes: mp4.length }, async () => {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const res = await ai.models.generateContent({
+        model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
+        contents: [
+          { inlineData: { mimeType: "video/mp4", data: mp4.toString("base64") } },
+          {
+            text:
+              "You are a video editor briefing a music supervisor. Watch the whole video with sound and reply in at most 8 short lines: " +
+              "what happens and the overall tone; pacing and motion (slow, frantic, builds); anything spoken or on-screen text and what it " +
+              "means for the mood (gist, not a full transcript); the key beats with timestamps (punchline, reveal, emotional turn, action) " +
+              "where music should react. Ignore the background music itself.",
+          },
+        ],
+      });
+      return (res.text ?? "").trim().slice(0, 1200);
+    });
+  } catch (e) {
+    console.error("[video-notes] failed", e);
+    return "";
+  }
+}

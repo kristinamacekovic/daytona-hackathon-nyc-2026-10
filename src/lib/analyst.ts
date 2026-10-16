@@ -8,8 +8,8 @@ import { withSpan } from "./tracing";
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 const strs = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
 
-export function analystPrompt({ brand, facts, analysis, slots }: {
-  brand: string; facts: string[]; analysis: Analysis; slots: SectionSlot[];
+export function analystPrompt({ brand, facts, analysis, slots, videoNotes }: {
+  brand: string; facts: string[]; analysis: Analysis; slots: SectionSlot[]; videoNotes?: string;
 }): string {
   return `You are a music supervisor replacing copyrighted music in a short brand video with new, original, instrumental music.
 
@@ -25,6 +25,9 @@ ${analysis.style_tag}
 - scene cuts (ms): ${analysis.scene_cuts_ms.join(", ") || "none"}
 - energy peaks (ms): ${analysis.energy_peaks_ms.join(", ") || "none"}
 The attached images are keyframes in chronological order.
+
+A viewer watched the full video with sound (motion, pacing, what is said, comedic or emotional beats):
+${videoNotes?.trim() ? videoNotes.trim() : "viewing notes: none"}
 
 The music must change at these fixed section boundaries:
 ${slots.map((s, i) => `${i + 1}. starts ${s.start_ms}ms, lasts ${s.duration_ms}ms`).join("\n")}
@@ -77,7 +80,7 @@ export function parseAnalystOutput(text: string, slots: SectionSlot[], duration_
 }
 
 export async function runAnalyst(args: {
-  brand: string; facts: string[]; analysis: Analysis; slots: SectionSlot[]; frames: Buffer[];
+  brand: string; facts: string[]; analysis: Analysis; slots: SectionSlot[]; frames: Buffer[]; videoNotes?: string;
 }): Promise<{ brief: Brief; plans: Plan[] }> {
   return withSpan("analyst", "CHAIN", { brand: args.brand, facts: args.facts, slots: args.slots }, async () => {
     const content = [

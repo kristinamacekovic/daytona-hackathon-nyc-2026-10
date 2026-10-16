@@ -3,7 +3,7 @@ import path from "node:path";
 import type { Analysis, Job, JobStatus, Option } from "./types";
 import { withJobSandbox, uploadScripts, WORK } from "./sandbox";
 import { sectionSlots, validateDuration } from "./timing";
-import { styleTag } from "./style-tag";
+import { styleTag, watchVideo } from "./style-tag";
 import { recallBrandFacts } from "./memory";
 import { runAnalyst } from "./analyst";
 import { composeAll, LEAD_IN_MS } from "./composer";
@@ -40,10 +40,11 @@ export async function runPipeline(job: Job, video: Buffer): Promise<void> {
           sb.download(`${WORK}/out/audio.mp3`).catch(() => null),
           recallBrandFacts(job.brand),
         ]);
-        analysis.style_tag = await styleTag(audio);
+        const [notes, videoNotes] = await Promise.all([styleTag(audio), watchVideo(video)]);
+        analysis.style_tag = notes;
         const slots = sectionSlots(analysis);
         const [{ brief, plans }, voice] = await Promise.all([
-          runAnalyst({ brand: job.brand, facts, analysis, slots, frames }),
+          runAnalyst({ brand: job.brand, facts, analysis, slots, frames, videoNotes }),
           isolateVoice(audio),
         ]);
         let withVoice = false;
