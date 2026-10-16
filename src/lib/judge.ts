@@ -77,7 +77,13 @@ export function combineScores(plan: Score[], listen: Score[] | null): Score[] {
 export async function listenScores(args: { brief: Brief; previews: { variant: Variant; mp4: Buffer }[] }): Promise<Score[] | null> {
   if (!process.env.GEMINI_API_KEY || args.previews.length === 0) return null;
   try {
-    return await withSpan("judge.listen", "EVALUATOR", { brief: args.brief, variants: args.previews.map((p) => p.variant) }, async (span) => {
+    const prompt =
+      `You are a music supervisor. Watch and listen to each option: the same video with a different new music track. ` +
+      `Brief: ${JSON.stringify(args.brief)}\n` +
+      `Score each 0-10 on how good the music sounds (production, coherence, no awkward start or ending) and how well it fits ` +
+      `the video's moments and any speech. One sentence each, written for the creator, about what you actually hear.\n` +
+      `Reply with only JSON: {"scores":[{"variant":"faithful","score":0,"rationale":""}]}`;
+    return await withSpan("judge.listen", "EVALUATOR", { prompt, variants: args.previews.map((p) => p.variant) }, async (span) => {
       const { GoogleGenAI } = await import("@google/genai");
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const res = await ai.models.generateContent({
@@ -87,14 +93,7 @@ export async function listenScores(args: { brief: Brief; previews: { variant: Va
             { text: `Option "${p.variant}":` },
             { inlineData: { mimeType: "video/mp4", data: p.mp4.toString("base64") } },
           ]),
-          {
-            text:
-              `You are a music supervisor. Watch and listen to each option: the same video with a different new music track. ` +
-              `Brief: ${JSON.stringify(args.brief)}\n` +
-              `Score each 0-10 on how good the music sounds (production, coherence, no awkward start or ending) and how well it fits ` +
-              `the video's moments and any speech. One sentence each, written for the creator, about what you actually hear.\n` +
-              `Reply with only JSON: {"scores":[{"variant":"faithful","score":0,"rationale":""}]}`,
-          },
+          { text: prompt },
         ],
       });
       const scores = parseJudgeOutput(res.text ?? "", args.previews.map((p) => p.variant)).filter((s) => s.rationale !== "not scored");
