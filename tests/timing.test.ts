@@ -31,6 +31,19 @@ describe("sectionSlots", () => {
       { start_ms: 5000, duration_ms: 5000 },
     ]);
   });
+  it("scene cuts win over energy peaks that sit too close to them", () => {
+    // real run: cuts at 6000/11000/16000, peaks a bit earlier — music must change on the cuts
+    const slots = sectionSlots({
+      duration_ms: 20000,
+      scene_cuts_ms: [6000, 11000, 16000],
+      energy_peaks_ms: [697, 3692, 8197, 11192, 18692],
+    });
+    expect(slots.map((s) => s.start_ms)).toEqual([0, 6000, 11000, 16000]);
+  });
+  it("adds energy peaks only where they are at least 3s from every cut", () => {
+    const slots = sectionSlots({ duration_ms: 30000, scene_cuts_ms: [10000], energy_peaks_ms: [4000, 12000, 20000] });
+    expect(slots.map((s) => s.start_ms)).toEqual([0, 4000, 10000, 20000]);
+  });
   it("rounds fractional input and always sums to duration", () => {
     const slots = sectionSlots({ duration_ms: 17333.6, scene_cuts_ms: [6100.4], energy_peaks_ms: [11999.5] });
     expect(sum(slots)).toBe(17334);

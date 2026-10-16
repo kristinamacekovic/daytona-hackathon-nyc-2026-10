@@ -1,6 +1,6 @@
 // Smoke test without a local clip: generate a 20s video with 3 scene cuts and a beat inside the sandbox.
 import { config } from "dotenv";
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { withJobSandbox, uploadScripts, WORK } from "../src/lib/sandbox";
 
 config({ path: ".env.local" });
@@ -20,6 +20,8 @@ async function main() {
     await sb.exec(GEN, 120);
     console.log(await sb.exec("python analyze.py in.mp4 out", 300));
     await writeFile("samples-smoke.mp3", await sb.download(`${WORK}/out/audio.mp3`));
+    await mkdir("samples", { recursive: true });
+    await writeFile("samples/synthetic.mp4", await sb.download(`${WORK}/in.mp4`));
     await sb.exec("cp out/audio.mp3 track.mp3 && bash mux.sh in.mp4 track.mp3 out/preview.mp4", 120);
     const prev = await sb.download(`${WORK}/out/preview.mp4`);
     console.log(`mux ok, preview ${prev.length} bytes`);

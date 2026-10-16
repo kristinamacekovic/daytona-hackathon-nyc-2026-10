@@ -10,18 +10,16 @@ export function sectionSlots(
   a: Pick<Analysis, "duration_ms" | "scene_cuts_ms" | "energy_peaks_ms">,
 ): SectionSlot[] {
   const d = Math.round(a.duration_ms);
-  const candidates = [...new Set([...a.scene_cuts_ms, ...a.energy_peaks_ms].map(Math.round))]
-    .filter((t) => t > 0 && t < d)
-    .sort((x, y) => x - y);
+  const clean = (xs: number[]) =>
+    [...new Set(xs.map(Math.round))].filter((t) => t > 0 && t < d).sort((x, y) => x - y);
 
+  // Scene cuts first: the music must change on the cut. Energy peaks only fill gaps.
   const kept: number[] = [];
-  let prev = 0;
-  for (const t of candidates) {
-    if (t - prev >= MIN_SECTION_MS && d - t >= MIN_SECTION_MS) {
-      kept.push(t);
-      prev = t;
-    }
-  }
+  const fits = (t: number) =>
+    t >= MIN_SECTION_MS && d - t >= MIN_SECTION_MS && kept.every((k) => Math.abs(k - t) >= MIN_SECTION_MS);
+  for (const t of clean(a.scene_cuts_ms)) if (fits(t)) kept.push(t);
+  for (const t of clean(a.energy_peaks_ms)) if (fits(t)) kept.push(t);
+  kept.sort((x, y) => x - y);
 
   const edges = [0, ...kept, d];
   const slots: SectionSlot[] = [];

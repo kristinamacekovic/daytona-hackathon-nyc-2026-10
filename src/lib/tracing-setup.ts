@@ -13,7 +13,7 @@ const provider = new NodeTracerProvider({
   spanProcessors: [
     new BatchSpanProcessor(
       new OTLPTraceExporter({
-        url: "https://otlp.arize.com/v1/traces",
+        url: process.env.ARIZE_OTLP_URL || "https://otlp.arize.com/v1/traces",
         headers: { "arize-space-id": process.env.ARIZE_SPACE_ID!, "arize-api-key": process.env.ARIZE_API_KEY! },
       }),
     ),

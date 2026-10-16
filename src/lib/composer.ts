@@ -49,8 +49,31 @@ async function composeOne(plan: Plan): Promise<Buffer> {
   });
 }
 
+const CONCURRENCY = Number(process.env.ELEVENLABS_CONCURRENCY) || 2; // Creator plan allows 2 at once
+
+async function composeWithRetry(plan: Plan): Promise<Buffer> {
+  try {
+    return await composeOne(plan);
+  } catch (e) {
+    if (!String((e as Error).message).includes("429")) throw e;
+    await new Promise((r) => setTimeout(r, 4000));
+    return composeOne(plan);
+  }
+}
+
 export async function composeAll(plans: Plan[]) {
-  const settled = await Promise.allSettled(plans.map(composeOne));
+  const settled: PromiseSettledResult<Buffer>[] = new Array(plans.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < plans.length) {
+      const i = next++;
+      settled[i] = await composeWithRetry(plans[i]).then(
+        (value) => ({ status: "fulfilled", value }) as const,
+        (reason) => ({ status: "rejected", reason }) as const,
+      );
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, plans.length) }, worker));
   const tracks: { variant: Variant; audio: Buffer }[] = [];
   const errors: { variant: Variant; message: string }[] = [];
   settled.forEach((r, i) => {
