@@ -3,7 +3,6 @@ import { getJob, updateJob } from "@/lib/store";
 import { rememberBrandFact } from "@/lib/memory";
 import { VARIANTS, type Variant } from "@/lib/types";
 
-export const runtime = "nodejs";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const job = await getJob((await params).id);

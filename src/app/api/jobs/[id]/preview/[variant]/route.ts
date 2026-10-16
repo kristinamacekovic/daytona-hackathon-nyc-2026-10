@@ -3,7 +3,6 @@ import path from "node:path";
 import { jobDir } from "@/lib/store";
 import { VARIANTS, type Variant } from "@/lib/types";
 
-export const runtime = "nodejs";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string; variant: string }> }) {
   const { id, variant } = await params;

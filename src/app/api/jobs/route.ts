@@ -6,7 +6,6 @@ import { addBrand } from "@/lib/brands";
 import { runPipeline } from "@/lib/pipeline";
 import type { Job } from "@/lib/types";
 
-export const runtime = "nodejs";
 const MAX_BYTES = 100 * 1024 * 1024;
 
 export async function POST(req: Request) {
