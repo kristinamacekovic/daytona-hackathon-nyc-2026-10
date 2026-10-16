@@ -6,7 +6,7 @@ import { sectionSlots, validateDuration } from "./timing";
 import { styleTag } from "./style-tag";
 import { recallBrandFacts } from "./memory";
 import { runAnalyst } from "./analyst";
-import { composeAll } from "./composer";
+import { composeAll, LEAD_IN_MS } from "./composer";
 import { runJudge } from "./judge";
 import { updateJob, jobDir, DEMO_DIR } from "./store";
 import { withSpan } from "./tracing";
@@ -52,7 +52,9 @@ export async function runPipeline(job: Job, video: Buffer): Promise<void> {
         for (const t of tracks) {
           await writeFile(path.join(dir, `track_${t.variant}.mp3`), t.audio);
           await sb.upload(t.audio, `${WORK}/track_${t.variant}.mp3`);
-          await sb.exec(`bash mux.sh in.mp4 track_${t.variant}.mp3 out/preview_${t.variant}.mp4`, 120);
+          const lead = (LEAD_IN_MS / 1000).toFixed(3);
+          const dur = (analysis.duration_ms / 1000).toFixed(3);
+          await sb.exec(`bash mux.sh in.mp4 track_${t.variant}.mp3 out/preview_${t.variant}.mp4 ${lead} ${dur}`, 120);
           await writeFile(path.join(dir, `preview_${t.variant}.mp4`), await sb.download(`${WORK}/out/preview_${t.variant}.mp4`));
         }
 

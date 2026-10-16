@@ -22,7 +22,7 @@ async function main() {
     await writeFile("samples-smoke.mp3", await sb.download(`${WORK}/out/audio.mp3`));
     await mkdir("samples", { recursive: true });
     await writeFile("samples/synthetic.mp4", await sb.download(`${WORK}/in.mp4`));
-    await sb.exec("cp out/audio.mp3 track.mp3 && bash mux.sh in.mp4 track.mp3 out/preview.mp4", 120);
+    await sb.exec("cp out/audio.mp3 track.mp3 && bash mux.sh in.mp4 track.mp3 out/preview.mp4 0 20", 120);
     const prev = await sb.download(`${WORK}/out/preview.mp4`);
     console.log(`mux ok, preview ${prev.length} bytes`);
   });

@@ -7,18 +7,29 @@ const el = () => (client ??= new ElevenLabsClient({ apiKey: process.env.ELEVENLA
 
 const TIMEOUT_MS = () => Number(process.env.ELEVENLABS_TIMEOUT_MS) || 120_000;
 
+// Extra music before and after the clip, trimmed off at mux: the track is already in its
+// groove at frame 0 and ends on a resolve instead of stopping mid-phrase.
+export const LEAD_IN_MS = 4000;
+export const TAIL_MS = 3000;
+
 // music_v2 / music_v2_5 take a chunk-based plan: each chunk carries its own styles and exact duration.
 // Global styles go on every chunk (the first chunk sets the genre), section styles add the change at each cut.
-export function toElevenPlan(plan: Plan): ElevenLabs.CompositionPlan {
+export function toElevenPlan(plan: Plan): { chunks: ElevenLabs.GenerationChunkInput[] } {
   const global = [...plan.global_styles, "instrumental", "great production quality"];
   const negative = [...plan.negative_styles, "vocals", "singing"];
+  const first = plan.sections[0]?.styles ?? [];
+  const last = plan.sections.at(-1)?.styles ?? [];
   return {
-    chunks: plan.sections.map((s) => ({
-      text: `[${s.name.slice(0, 100) || "Section"}]`,
-      durationMs: s.duration_ms,
-      positiveStyles: [...global, ...s.styles],
-      negativeStyles: negative,
-    })),
+    chunks: [
+      { text: "[Intro]", durationMs: LEAD_IN_MS, positiveStyles: [...global, ...first, "intro", "establishing groove"], negativeStyles: negative },
+      ...plan.sections.map((s) => ({
+        text: `[${s.name.slice(0, 100) || "Section"}]`,
+        durationMs: s.duration_ms,
+        positiveStyles: [...global, ...s.styles],
+        negativeStyles: negative,
+      })),
+      { text: "[Outro]", durationMs: TAIL_MS, positiveStyles: [...global, ...last, "outro", "resolving ending"], negativeStyles: negative },
+    ],
   };
 }
 
