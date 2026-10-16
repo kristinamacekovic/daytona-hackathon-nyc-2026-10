@@ -20,7 +20,8 @@ ${facts.length ? facts.map((f) => `- ${f}`).join("\n") : "- nothing yet"}
 Measured video analysis:
 - duration: ${analysis.duration_ms}ms
 - original track tempo: ${effectiveBpm(analysis.bpm)} BPM
-- original track style: ${analysis.style_tag}
+- original track, producer's listening notes:
+${analysis.style_tag}
 - scene cuts (ms): ${analysis.scene_cuts_ms.join(", ") || "none"}
 - energy peaks (ms): ${analysis.energy_peaks_ms.join(", ") || "none"}
 The attached images are keyframes in chronological order.
@@ -31,7 +32,7 @@ ${slots.map((s, i) => `${i + 1}. starts ${s.start_ms}ms, lasts ${s.duration_ms}m
 Write:
 1. A brief: what the content is, the mood the music should carry, things to avoid, and the key moments.
 2. Three music plans, one per variant:
-   - "faithful": keeps the feel, tempo and energy of the original track without copying it
+   - "faithful": rebuilds the original track's feel from the listening notes (groove, bass, instrument palette, energy arc, tempo) as a new composition: never its melody, hook or lyrics
    - "brand": follows the brand's preferences above
    - "wildcard": a deliberate creative contrast that still respects the timing and the brand's avoid list
    Each plan has global_styles (genre, instruments, BPM, mood; 3-8 short tags), negative_styles, and exactly ${slots.length} sections in the order above, each with a short name and 2-5 style tags for how the music changes there.

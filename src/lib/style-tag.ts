@@ -10,10 +10,18 @@ export async function styleTag(audioMp3: Buffer | null): Promise<string> {
         model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
         contents: [
           { inlineData: { mimeType: "audio/mp3", data: audioMp3.toString("base64") } },
-          { text: "Describe the background music in one line of comma-separated tags: genre, main instruments, mood, approximate BPM. Ignore speech. If there is no music, reply exactly: no music" },
+          {
+            text:
+              "You are a music producer taking listening notes on the background music so another producer can write " +
+              "an original track with the same feel without copying it. Ignore speech. Reply in at most 6 short lines:\n" +
+              "genre/subgenre and era; drums and groove (pattern feel, swing, hat density); bass (808, synth, upright, how it moves); " +
+              "lead and texture instruments; key or tonal mood (major/minor, bright/dark) and approximate BPM; " +
+              "energy arc with rough timestamps (where it builds, drops, or changes).\n" +
+              "Describe feel and production, never melody lines, lyrics, or the song's name. If there is no music, reply exactly: no music",
+          },
         ],
       });
-      return (res.text ?? "").trim().split("\n")[0].slice(0, 200) || "unknown";
+      return (res.text ?? "").trim().slice(0, 700) || "unknown";
     });
   } catch (e) {
     console.error("[style-tag] failed", e);
