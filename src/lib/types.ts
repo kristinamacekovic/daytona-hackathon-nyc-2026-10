@@ -33,6 +33,17 @@ export type Score = { variant: Variant; score: number; rationale: string; recomm
 
 export type Option = Score & { plan: Plan; preview_url: string };
 
+// Shown while the job runs, before scores exist.
+export type Draft = { variant: Variant; plan: Plan; preview_url?: string };
+
+export type Insights = {
+  duration_ms: number;
+  bpm: number;
+  scene_cuts_ms: number[];
+  listening_notes: string;
+  video_notes: string;
+};
+
 export type JobStatus =
   | "ingesting" | "analyzing" | "composing" | "muxing" | "judging" | "ready" | "failed";
 
@@ -45,6 +56,8 @@ export type Job = {
   failed_step?: JobStatus;
   error?: string;
   brief?: Brief;
+  insights?: Insights;
+  drafts?: Draft[];
   options: Option[];
   picked?: Variant;
   created_at: string;

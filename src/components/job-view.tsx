@@ -5,7 +5,8 @@ import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { JobSteps } from "./job-steps";
-import { OptionCard } from "./option-card";
+import { OptionCard, type CardData } from "./option-card";
+import { InsightsCard } from "./insights-card";
 import type { Job, Variant } from "@/lib/types";
 
 export function JobView({ id, onReset }: { id: string; onReset: () => void }) {
@@ -57,24 +58,32 @@ export function JobView({ id, onReset }: { id: string; onReset: () => void }) {
           <Button className="mt-3" size="sm" variant="outline" onClick={onReset}>Try again</Button>
         </div>
       )}
+      {job.insights && <InsightsCard insights={job.insights} />}
       {job.brief && job.status !== "failed" && (
-        <p className="max-w-3xl text-pretty text-muted-foreground">
+        <p className="max-w-3xl text-pretty text-muted-foreground animate-in fade-in duration-700">
           <span className="text-foreground">{job.brief.summary.replace(/\.+$/, "")}.</span>{" "}
           Mood: {job.brief.mood.replace(/\.+$/, "")}.
         </p>
       )}
-      {job.status === "ready" && (
-        <div className="grid gap-6 md:grid-cols-3">
-          {job.options.map((o) => (
-            <OptionCard key={o.variant} option={o} picked={job.picked === o.variant} onPick={() => pick(o.variant)} />
-          ))}
-        </div>
-      )}
-      {["composing", "muxing", "judging"].includes(job.status) && (
-        <div className="grid gap-6 md:grid-cols-3">
-          {[0, 1, 2].map((i) => <Skeleton key={i} className="aspect-[9/16] max-h-[420px] w-full rounded-xl" />)}
-        </div>
-      )}
+      {(() => {
+        const ready = job.status === "ready";
+        const cards: CardData[] = ready ? job.options : (job.drafts ?? []);
+        if (job.status === "failed") return null;
+        if (cards.length === 0) {
+          return ["analyzing", "composing"].includes(job.status) && job.insights ? (
+            <div className="grid gap-6 md:grid-cols-3">
+              {[0, 1, 2].map((i) => <Skeleton key={i} className="aspect-[9/16] max-h-[420px] w-full rounded-xl" />)}
+            </div>
+          ) : null;
+        }
+        return (
+          <div className="grid gap-6 md:grid-cols-3">
+            {cards.map((o) => (
+              <OptionCard key={o.variant} option={o} ready={ready} picked={job.picked === o.variant} onPick={() => pick(o.variant)} />
+            ))}
+          </div>
+        );
+      })()}
     </section>
   );
 }

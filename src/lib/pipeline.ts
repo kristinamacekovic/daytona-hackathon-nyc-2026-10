@@ -2,7 +2,7 @@ import { mkdir, writeFile, readFile, cp } from "node:fs/promises";
 import path from "node:path";
 import type { Analysis, Job, JobStatus, Option } from "./types";
 import { withJobSandbox, uploadScripts, WORK } from "./sandbox";
-import { sectionSlots, validateDuration } from "./timing";
+import { sectionSlots, validateDuration, effectiveBpm } from "./timing";
 import { styleTag, watchVideo } from "./style-tag";
 import { recallBrandFacts } from "./memory";
 import { runAnalyst } from "./analyst";
@@ -42,6 +42,15 @@ export async function runPipeline(job: Job, video: Buffer): Promise<void> {
         ]);
         const [notes, videoNotes] = await Promise.all([styleTag(audio), watchVideo(video)]);
         analysis.style_tag = notes;
+        await updateJob(job, {
+          insights: {
+            duration_ms: analysis.duration_ms,
+            bpm: effectiveBpm(analysis.bpm),
+            scene_cuts_ms: analysis.scene_cuts_ms,
+            listening_notes: notes,
+            video_notes: videoNotes.replace(/\n?\**SPEECH:?\**\s*(yes|no)\s*$/i, "").trim(),
+          },
+        });
         const slots = sectionSlots(analysis);
         const [{ brief, plans }, voice] = await Promise.all([
           runAnalyst({ brand: job.brand, facts, analysis, slots, frames, videoNotes }),
@@ -55,7 +64,7 @@ export async function runPipeline(job: Job, video: Buffer): Promise<void> {
           withVoice = keepVoice(parseMeanVolume(stats), parseSpeechFlag(videoNotes));
           console.log(`[pipeline] voice ${withVoice ? "kept" : "skipped"} (${stats.trim()})`);
         }
-        await updateJob(job, { brief });
+        await updateJob(job, { brief, drafts: plans.map((p) => ({ variant: p.variant, plan: p })) });
 
         await set("composing");
         const { tracks, errors } = await composeAll(plans);
@@ -72,6 +81,9 @@ export async function runPipeline(job: Job, video: Buffer): Promise<void> {
             120,
           );
           await writeFile(path.join(dir, `preview_${t.variant}.mp4`), await sb.download(`${WORK}/out/preview_${t.variant}.mp4`));
+          await updateJob(job, {
+            drafts: job.drafts?.map((d) => (d.variant === t.variant ? { ...d, preview_url: `/api/jobs/${job.id}/preview/${t.variant}` } : d)),
+          });
         }
 
         await set("judging");
