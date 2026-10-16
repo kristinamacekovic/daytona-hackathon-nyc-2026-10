@@ -34,3 +34,20 @@ describe("speech detection", () => {
     expect(hasSpeech(null)).toBe(false);
   });
 });
+
+import { parseSpeechFlag, keepVoice } from "@/lib/mix";
+
+describe("speech vs singing", () => {
+  it("reads Gemini's SPEECH flag", () => {
+    expect(parseSpeechFlag("- tone: cheeky\nSPEECH: yes")).toBe(true);
+    expect(parseSpeechFlag("- tone: wistful\nSPEECH: no")).toBe(false);
+    expect(parseSpeechFlag("**SPEECH:** No")).toBe(false);
+    expect(parseSpeechFlag("no flag at all")).toBeNull();
+  });
+  it("keeps the voice only when Gemini heard talking AND the isolated track has level", () => {
+    expect(keepVoice(-27.7, true)).toBe(true);
+    expect(keepVoice(-27.7, false)).toBe(false); // singer-songwriter vocal: loud, but it's singing
+    expect(keepVoice(-27.7, null)).toBe(false); // unsure → music only, never risk the copyrighted vocal
+    expect(keepVoice(-60, true)).toBe(false);
+  });
+});

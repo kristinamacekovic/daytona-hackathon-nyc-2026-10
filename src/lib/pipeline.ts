@@ -12,7 +12,7 @@ import { updateJob, jobDir, DEMO_DIR } from "./store";
 import { withJobContext, withSpan } from "./tracing";
 import { isCompleteRun } from "./pipeline-rules";
 import { isolateVoice } from "./voice";
-import { muxFilter, parseMeanVolume, hasSpeech } from "./mix";
+import { muxFilter, parseMeanVolume, parseSpeechFlag, keepVoice } from "./mix";
 
 export async function runPipeline(job: Job, video: Buffer): Promise<void> {
   const dir = jobDir(job.id);
@@ -45,13 +45,14 @@ export async function runPipeline(job: Job, video: Buffer): Promise<void> {
         const slots = sectionSlots(analysis);
         const [{ brief, plans }, voice] = await Promise.all([
           runAnalyst({ brand: job.brand, facts, analysis, slots, frames, videoNotes }),
-          isolateVoice(audio),
+          // Skip isolation unless Gemini heard someone talk: singing in the original song must never be kept.
+          parseSpeechFlag(videoNotes) === true ? isolateVoice(audio) : Promise.resolve(null),
         ]);
         let withVoice = false;
         if (voice) {
           await sb.upload(voice, `${WORK}/voice.mp3`);
           const stats = await sb.exec("ffmpeg -hide_banner -i voice.mp3 -af volumedetect -f null - 2>&1 | grep mean_volume || true", 60);
-          withVoice = hasSpeech(parseMeanVolume(stats));
+          withVoice = keepVoice(parseMeanVolume(stats), parseSpeechFlag(videoNotes));
           console.log(`[pipeline] voice ${withVoice ? "kept" : "skipped"} (${stats.trim()})`);
         }
         await updateJob(job, { brief });

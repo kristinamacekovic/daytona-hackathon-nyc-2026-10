@@ -23,3 +23,12 @@ export function parseMeanVolume(ffmpegStderr: string): number | null {
 }
 
 export const hasSpeech = (meanDb: number | null) => meanDb !== null && meanDb > SPEECH_MIN_DB;
+
+// Gemini ends its viewing notes with "SPEECH: yes|no": talking to camera or voiceover, not singing in the music.
+export function parseSpeechFlag(notes: string): boolean | null {
+  const m = notes.match(/SPEECH:?\**\s*(yes|no)\b/i);
+  return m ? m[1].toLowerCase() === "yes" : null;
+}
+
+// The isolator keeps any human voice, including the copyrighted song's singer. Only keep it for real talking.
+export const keepVoice = (meanDb: number | null, speechFlag: boolean | null) => speechFlag === true && hasSpeech(meanDb);

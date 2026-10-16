@@ -39,7 +39,9 @@ export async function watchVideo(mp4: Buffer): Promise<string> {
       "You are a video editor briefing a music supervisor. Watch the whole video with sound and reply in at most 8 short lines: " +
       "what happens and the overall tone; pacing and motion (slow, frantic, builds); anything spoken or on-screen text and what it " +
       "means for the mood (gist, not a full transcript); the key beats with timestamps (punchline, reveal, emotional turn, action) " +
-      "where music should react. Ignore the background music itself.";
+      "where music should react. Ignore the background music itself.\n" +
+      "End with one final line, exactly 'SPEECH: yes' if a person talks (to camera, dialogue or voiceover) or 'SPEECH: no' " +
+      "if not. Singing that is part of the background song does NOT count as speech.";
     return await withSpan("video_notes", "LLM", { model: geminiModel(), prompt, video_bytes: mp4.length }, async (span) => {
       span.setAttribute("llm.model_name", geminiModel());
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
