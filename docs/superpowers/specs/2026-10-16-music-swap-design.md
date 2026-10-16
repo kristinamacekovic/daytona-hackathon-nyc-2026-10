@@ -26,6 +26,7 @@ Hosted production deployment, user accounts, long-form video (> ~60s), stem sepa
 | Decision | Choice | Why |
 |---|---|---|
 | Stack | Next.js + TypeScript, one app (UI + API routes) | fastest to ship; all sponsors have TS SDKs |
+| UI | shadcn/ui + Tailwind, sleek and minimal | polished look fast; presentation is 25% of judging |
 | Media processing | One Daytona sandbox per job, running Python (ffmpeg + librosa) | isolates untrusted media, reproducible env, clear Daytona story |
 | Analysis | DSP for timing + Claude for the brief + Gemini style tag | LLMs estimate timestamps/BPM poorly; DSP gives exact numbers. Claude can't hear audio, Gemini can |
 | Generation | ElevenLabs Music with composition plans | per-section `duration_ms` lets music change exactly on cuts |
