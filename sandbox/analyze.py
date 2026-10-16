@@ -9,7 +9,11 @@ os.makedirs(f"{out}/frames", exist_ok=True)
 
 
 def run(cmd):
-    return subprocess.run(cmd, capture_output=True, text=True, check=True)
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        # Surface the tool's own reason (e.g. "moov atom not found") instead of a bare exit code.
+        sys.exit(f"{cmd[0]} failed on {src}: {r.stderr.strip() or 'no output'}")
+    return r
 
 
 probe = run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "json", src])

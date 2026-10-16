@@ -22,6 +22,28 @@ export function ytDlpArgs(url: string, out: string): string[] {
   return ["yt-dlp", "-q", "--no-playlist", "--max-filesize", "100M", "-f", "b[ext=mp4]/b", "-o", out, "--", url];
 }
 
+// Walks the top-level MP4 boxes. A truncated or partial capture (a range chunk, an aborted
+// stream, a bare DASH segment) either runs past the end or lacks moov/mdat, and ffprobe rejects it.
+export function isCompleteMp4(buf: Buffer): boolean {
+  const seen = new Set<string>();
+  let off = 0;
+  while (off < buf.length) {
+    if (off + 8 > buf.length) return false;
+    let size = buf.readUInt32BE(off);
+    const type = buf.toString("latin1", off + 4, off + 8);
+    if (size === 1) {
+      if (off + 16 > buf.length) return false;
+      size = Number(buf.readBigUInt64BE(off + 8));
+    } else if (size === 0) {
+      size = buf.length - off;
+    }
+    if (size < 8 || off + size > buf.length) return false;
+    seen.add(type);
+    off += size;
+  }
+  return seen.has("ftyp") && seen.has("moov") && (seen.has("mdat") || seen.has("moof"));
+}
+
 // Anchor first when configured; otherwise (or if it fails) yt-dlp on the app server.
 // Not in the Daytona sandbox: its egress allowlist blocks Instagram/TikTok on this plan.
 export async function fetchVideoFromLink(url: string): Promise<Buffer> {
@@ -30,7 +52,9 @@ export async function fetchVideoFromLink(url: string): Promise<Buffer> {
   const args = ytDlpArgs(url, out);
   if (process.env.ANCHOR_API_KEY) {
     try {
-      return await fetchWithAnchor(url);
+      const buf = await fetchWithAnchor(url);
+      if (isCompleteMp4(buf)) return buf;
+      console.error(`[ingest] Anchor returned an incomplete video (${buf.length} bytes), falling back to yt-dlp`);
     } catch (e) {
       console.error("[ingest] Anchor failed, falling back to yt-dlp", e);
     }
@@ -43,7 +67,9 @@ export async function fetchVideoFromLink(url: string): Promise<Buffer> {
         console.error("[ingest] yt-dlp failed", e);
         throw new Error("couldn't download that video, it may be private or blocked");
       }
-      return readFile(out);
+      const buf = await readFile(out);
+      if (!isCompleteMp4(buf)) throw new Error("the downloaded video is incomplete or not an mp4");
+      return buf;
     });
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -89,8 +115,11 @@ export async function fetchWithAnchor(url: string): Promise<Buffer> {
         if (b64) videos.push(Buffer.from(b64, "base64"));
       }
 
-      if (videos.length === 0) throw new Error("no downloadable video found on that page");
-      return videos.sort((a, b) => b.length - a.length)[0];
+      // Prefer a complete file over a bigger partial one.
+      const complete = videos.filter(isCompleteMp4);
+      const pool = complete.length > 0 ? complete : videos;
+      if (pool.length === 0) throw new Error("no downloadable video found on that page");
+      return pool.sort((a, b) => b.length - a.length)[0];
     } finally {
       await browser.close().catch(() => {});
     }
