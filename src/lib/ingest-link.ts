@@ -1,13 +1,56 @@
 import { client, Sessions } from "anchorbrowser";
 import { chromium } from "playwright-core";
 import { withSpan } from "./tracing";
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
 
 const MAX_BYTES = 100 * 1024 * 1024;
+const run = promisify(execFile);
 
+export function ytDlpArgs(url: string, out: string): string[] {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error("not a valid link");
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error("not a valid link");
+  // Single-file mp4 with audio: no local ffmpeg needed to merge streams.
+  return ["yt-dlp", "-q", "--no-playlist", "--max-filesize", "100M", "-f", "b[ext=mp4]/b", "-o", out, "--", url];
+}
+
+// Anchor first when configured; otherwise (or if it fails) yt-dlp on the app server.
+// Not in the Daytona sandbox: its egress allowlist blocks Instagram/TikTok on this plan.
 export async function fetchVideoFromLink(url: string): Promise<Buffer> {
-  if (!process.env.ANCHOR_API_KEY) throw new Error("link import is not configured");
-  if (!/^https?:\/\//.test(url)) throw new Error("not a valid link");
+  const dir = await mkdtemp(path.join(tmpdir(), "music-swap-"));
+  const out = path.join(dir, "link.mp4");
+  const args = ytDlpArgs(url, out);
+  if (process.env.ANCHOR_API_KEY) {
+    try {
+      return await fetchWithAnchor(url);
+    } catch (e) {
+      console.error("[ingest] Anchor failed, falling back to yt-dlp", e);
+    }
+  }
+  try {
+    return await withSpan("ingest.ytdlp", "TOOL", { url }, async () => {
+      try {
+        await run("uvx", args, { timeout: 120_000 });
+      } catch (e) {
+        console.error("[ingest] yt-dlp failed", e);
+        throw new Error("couldn't download that video, it may be private or blocked");
+      }
+      return readFile(out);
+    });
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
 
+async function fetchWithAnchor(url: string): Promise<Buffer> {
   return withSpan("ingest.anchor", "TOOL", { url }, async () => {
     client.setConfig({ auth: () => process.env.ANCHOR_API_KEY! });
     const session = await Sessions.createSession();

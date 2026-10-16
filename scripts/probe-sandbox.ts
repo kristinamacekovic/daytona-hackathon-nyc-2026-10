@@ -10,7 +10,7 @@ async function main() {
   console.log(`created in ${Math.round((Date.now() - t0) / 1000)}s`);
   try {
     const r = await sb.process.executeCommand(
-      "start=$(date +%s); pip install -q librosa soundfile 2>&1 | tail -3; python3 -c 'import librosa; print(\"librosa\", librosa.__version__)' 2>&1 | tail -1; echo took $(( $(date +%s) - start ))s",
+      "for u in https://pypi.org https://www.instagram.com https://www.tiktok.com https://www.w3schools.com https://github.com https://www.google.com; do printf '%s ' $u; curl -s -o /dev/null -m 10 -w '%{http_code}\\n' $u || echo FAIL; done",
       undefined, undefined, 300,
     );
     console.log(r.result);
