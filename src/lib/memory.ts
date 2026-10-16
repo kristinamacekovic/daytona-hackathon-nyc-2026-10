@@ -58,12 +58,24 @@ export async function recallBrandFacts(brand: string): Promise<string[]> {
   }
 }
 
+// Scope nodes must exist before facts can be written to them.
+const registered = new Set<string>();
+async function ensureScope(scope: string) {
+  if (registered.has(scope)) return;
+  const parts = scope.split("/");
+  for (let i = 1; i <= parts.length; i++) {
+    await post("/scopes", { path: parts.slice(0, i).join("/") }).catch(() => {}); // already exists is fine
+  }
+  registered.add(scope);
+}
+
 export async function rememberBrandFact(brand: string, text: string): Promise<void> {
   if (!base()) return;
   try {
-    await withSpan("memory.remember", "TOOL", { brand, text }, () =>
-      post("/facts", { text, infer: "full", scopes: [[brandScope(brand)]] }),
-    );
+    await withSpan("memory.remember", "TOOL", { brand, text }, async () => {
+      await ensureScope(brandScope(brand));
+      return post("/facts", { text, infer: "full", scopes: [[brandScope(brand)]] });
+    });
   } catch (e) {
     console.error("[memory] remember failed", e);
   }

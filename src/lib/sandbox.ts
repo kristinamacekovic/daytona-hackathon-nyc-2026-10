@@ -1,4 +1,4 @@
-import { Daytona, Image } from "@daytona/sdk";
+import { Daytona } from "@daytona/sdk";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -10,19 +10,19 @@ export type JobSandbox = {
   download(remotePath: string): Promise<Buffer>;
 };
 
-// Built once by Daytona and cached; first job of the day takes longer.
-const image = Image.debianSlim("3.12")
-  .runCommands("apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*")
-  .pipInstall(["librosa==0.10.2.post1", "numpy", "scipy", "soundfile"]);
-
 let client: Daytona | null = null;
-const daytona = () => (client ??= new Daytona());
+// Endpoint is set here on purpose: the SDK refuses an API URL that only comes from a .env file.
+const daytona = () =>
+  (client ??= new Daytona({
+    apiKey: process.env.DAYTONA_API_KEY,
+    apiUrl: "https://app.daytona.io/api",
+    target: process.env.DAYTONA_TARGET || "eu",
+  }));
 
 export async function withJobSandbox<T>(fn: (sb: JobSandbox) => Promise<T>): Promise<T> {
-  const sandbox = await daytona().create(
-    { image },
-    { timeout: 600, onSnapshotCreateLogs: (l: string) => console.log("[daytona]", l.trimEnd()) },
-  );
+  // Default python sandbox ships ffmpeg, numpy and scipy; librosa installs in ~5s.
+  // (Declarative image builds aren't enabled for this org.)
+  const sandbox = await daytona().create({ language: "python" }, { timeout: 120 });
   const sb: JobSandbox = {
     async upload(buf, remotePath) {
       await sandbox.fs.uploadFile(buf, remotePath);
@@ -37,7 +37,7 @@ export async function withJobSandbox<T>(fn: (sb: JobSandbox) => Promise<T>): Pro
     },
   };
   try {
-    await sandbox.process.executeCommand(`mkdir -p ${WORK}`);
+    await sandbox.process.executeCommand(`mkdir -p ${WORK} && pip install -q librosa soundfile`, undefined, undefined, 180);
     return await fn(sb);
   } finally {
     await sandbox.delete().catch((e: unknown) => console.error("[daytona] delete failed", e));

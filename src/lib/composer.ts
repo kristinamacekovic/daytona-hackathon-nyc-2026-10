@@ -7,16 +7,17 @@ const el = () => (client ??= new ElevenLabsClient({ apiKey: process.env.ELEVENLA
 
 const TIMEOUT_MS = 120_000;
 
-export function toElevenPlan(plan: Plan): ElevenLabs.MusicPrompt {
+// music_v2 / music_v2_5 take a chunk-based plan: each chunk carries its own styles and exact duration.
+// Global styles go on every chunk (the first chunk sets the genre), section styles add the change at each cut.
+export function toElevenPlan(plan: Plan): ElevenLabs.CompositionPlan {
+  const global = [...plan.global_styles, "instrumental", "great production quality"];
+  const negative = [...plan.negative_styles, "vocals", "singing"];
   return {
-    positiveGlobalStyles: [...plan.global_styles, "instrumental"],
-    negativeGlobalStyles: [...plan.negative_styles, "vocals", "singing"],
-    sections: plan.sections.map((s) => ({
-      sectionName: s.name.slice(0, 100) || "Section",
-      positiveLocalStyles: s.styles,
-      negativeLocalStyles: [],
+    chunks: plan.sections.map((s) => ({
+      text: `[${s.name.slice(0, 100) || "Section"}]`,
       durationMs: s.duration_ms,
-      lines: [],
+      positiveStyles: [...global, ...s.styles],
+      negativeStyles: negative,
     })),
   };
 }
