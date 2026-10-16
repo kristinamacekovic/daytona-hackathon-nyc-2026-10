@@ -43,7 +43,14 @@ ${args.plans.map((p) => JSON.stringify(p)).join("\n")}
 
 Score each plan 0-10 for how well it fits the brief, the key moments, and the brand facts. Respect the avoid list strictly. One sentence of rationale each, written for the creator.
 Reply with only JSON: {"scores":[{"variant":"faithful","score":0,"rationale":""}]}`;
-    const scores = parseJudgeOutput(await claudeText([{ type: "text", text: prompt }], 1500), args.plans.map((p) => p.variant));
+    let text = "";
+    try {
+      text = await claudeText([{ type: "text", text: prompt }], 1500);
+    } catch (e) {
+      // Tracks are already paid for; show them unscored rather than failing the job.
+      console.error("[judge] failed, returning unscored options", e);
+    }
+    const scores = parseJudgeOutput(text, args.plans.map((p) => p.variant));
     for (const s of scores) {
       span.setAttribute(`eval.music_fit.${s.variant}.score`, s.score);
       span.setAttribute(`eval.music_fit.${s.variant}.explanation`, s.rationale);

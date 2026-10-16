@@ -5,7 +5,7 @@ import { withSpan } from "./tracing";
 let client: ElevenLabsClient | null = null;
 const el = () => (client ??= new ElevenLabsClient({ apiKey: process.env.ELEVENLABS_API_KEY }));
 
-const TIMEOUT_MS = 120_000;
+const TIMEOUT_MS = () => Number(process.env.ELEVENLABS_TIMEOUT_MS) || 120_000;
 
 // music_v2 / music_v2_5 take a chunk-based plan: each chunk carries its own styles and exact duration.
 // Global styles go on every chunk (the first chunk sets the genre), section styles add the change at each cut.
@@ -35,15 +35,22 @@ async function toBuffer(audio: ReadableStream<Uint8Array>): Promise<Buffer> {
 
 async function composeOne(plan: Plan): Promise<Buffer> {
   return withSpan(`composer.${plan.variant}`, "TOOL", toElevenPlan(plan), async () => {
-    const audio = await Promise.race([
-      el().music.compose({
-        compositionPlan: toElevenPlan(plan),
-        modelId: (process.env.ELEVENLABS_MODEL || "music_v2_5") as ElevenLabs.MusicModelId,
-        outputFormat: "mp3_44100_128",
-      }),
-      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("ElevenLabs timed out")), TIMEOUT_MS)),
+    // The timeout must cover the body too: the SDK stops timing once headers arrive.
+    const signal = AbortSignal.timeout(TIMEOUT_MS());
+    const buf = await Promise.race([
+      (async () =>
+        toBuffer(
+          await el().music.compose(
+            {
+              compositionPlan: toElevenPlan(plan),
+              modelId: (process.env.ELEVENLABS_MODEL || "music_v2_5") as ElevenLabs.MusicModelId,
+              outputFormat: "mp3_44100_128",
+            },
+            { abortSignal: signal },
+          ),
+        ))(),
+      new Promise<never>((_, rej) => signal.addEventListener("abort", () => rej(new Error("ElevenLabs timed out")))),
     ]);
-    const buf = await toBuffer(audio);
     if (buf.length < 1000) throw new Error("ElevenLabs returned empty audio");
     return buf;
   });

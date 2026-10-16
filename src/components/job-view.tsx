@@ -14,11 +14,15 @@ export function JobView({ id, onReset }: { id: string; onReset: () => void }) {
   useEffect(() => {
     let stop = false;
     const tick = async () => {
-      const res = await fetch(`/api/jobs/${id}`);
-      if (res.ok) {
-        const j = (await res.json()) as Job;
-        if (!stop) setJob(j);
-        if (j.status === "ready" || j.status === "failed") return;
+      try {
+        const res = await fetch(`/api/jobs/${id}`);
+        if (res.ok) {
+          const j = (await res.json()) as Job;
+          if (!stop) setJob(j);
+          if (j.status === "ready" || j.status === "failed") return;
+        }
+      } catch {
+        // dev server reload or network blip: keep polling
       }
       if (!stop) setTimeout(tick, 1500);
     };

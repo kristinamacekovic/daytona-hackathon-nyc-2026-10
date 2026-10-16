@@ -10,6 +10,7 @@ import { composeAll } from "./composer";
 import { runJudge } from "./judge";
 import { updateJob, jobDir, DEMO_DIR } from "./store";
 import { withSpan } from "./tracing";
+import { isCompleteRun } from "./pipeline-rules";
 
 export async function runPipeline(job: Job, video: Buffer): Promise<void> {
   const dir = jobDir(job.id);
@@ -64,7 +65,9 @@ export async function runPipeline(job: Job, video: Buffer): Promise<void> {
           preview_url: `/api/jobs/${job.id}/preview/${s.variant}`,
         }));
         await updateJob(job, { options, status: "ready" });
-        await cp(dir, path.join(DEMO_DIR, "latest"), { recursive: true }).catch(() => {});
+        if (isCompleteRun(options.length)) {
+          await cp(dir, path.join(DEMO_DIR, "latest"), { recursive: true }).catch(() => {});
+        }
       }),
     );
   } catch (e) {

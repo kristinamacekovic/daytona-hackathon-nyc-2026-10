@@ -95,3 +95,12 @@ describe("effectiveBpm", () => {
     expect(effectiveBpm(123.4)).toBe(123);
   });
 });
+
+import { isCompleteRun } from "@/lib/pipeline-rules";
+
+describe("isCompleteRun", () => {
+  it("only full 3-option runs replace the cached demo", () => {
+    expect(isCompleteRun(3)).toBe(true);
+    expect(isCompleteRun(2)).toBe(false);
+  });
+});
