@@ -1,0 +1,12 @@
+node_modules
+.next
+.data
+.env
+.env.*
+!.env.example
+samples
+samples-smoke.mp3
+try.mp3
+preview.mp4
+.superpowers
+.git

@@ -28,4 +28,15 @@ npm run dev                  # http://localhost:3000
 npm test
 ```
 
+## Deploy (Railway)
+
+The app needs one long-running server with a disk, so it ships as a Docker image (`Dockerfile`).
+
+1. New project → Deploy from GitHub repo → this repo. Railway builds the Dockerfile.
+2. Variables: everything from `.env.example`, plus `APP_PASSWORD` (browser login for every page and API route; leave unset only for local dev).
+3. Add a volume mounted at `/app/.data` (jobs, previews, brand list, cached demo).
+4. Settings → Networking → Generate domain.
+
+Keep it at one replica: job state is held in memory on the server.
+
 Design spec and implementation plan live in `docs/superpowers/`.
